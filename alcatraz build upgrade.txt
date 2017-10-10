@@ -1,0 +1,129 @@
+ Upgrading Alcatraz builds using the UI
+ 
+ PREREQUESTIES
+ 
+ 1. Login to the puppet master
+ 2. Navigate to the ~/workspace directory and run the sync_config.sh file: [./sync_config.sh]
+    - This ensures that the latest configuration files from each fabric synchronizes with latest build once upgraded
+ 3. Navigate to the /home/sysops/<environment> directory and ensure that all the IP entries of each fabrics are valid
+    (cheeck for all nodes:Karaf, Karaf_nfs, storm, hazelcast)-It displays all nodes along with respective IP's
+	
+	
+ PROCEDURE
+ 
+ 1. Copy the build file- Login to the puppet master and copy a build to /data1 directory.
+ 
+ 2. Shutdown all compute nodes
+    1. login to the puppet master where fab scripts are installed.
+	2. Navigate to the /opt/command-examples/python-fabric directory.
+	3. configure the fabile.py accordingly
+	4. Stop all storm topologies
+	  For primary site
+		sudo /apps/storm/bin/storm kill 'export-archive-topology' -w 5 | grep "Killed topology";
+		sudo /apps/storm/bin/storm kill 'export-ediscovery-topology' -w 5 | grep "Killed topology";
+		sudo /apps/storm/bin/storm kill 'itm-lfs-ingestion-topology' -w 5 | grep "Killed topology";
+		sudo /apps/storm/bin/storm kill 'export-supervision-topology' -w 5 | grep "Killed topology";
+		sudo /apps/storm/bin/storm kill 'itm-ingestion-topology' -w 5 | grep "Killed topology";
+		sudo /apps/storm/bin/storm kill 'itm-primary-disaster-recovery-topology' -w 5 | grep "Killed topology";
+		sudo /apps/storm/bin/storm kill 'job-processing-topology' -w 5 | grep "Killed topology";
+		sudo /apps/storm/bin/storm kill 'metadata-topology' -w 5 | grep "Killed topology";
+		sudo /apps/storm/bin/storm kill 'supervision-metadata-topology' -w 5 | grep "Killed topology";
+		sudo /apps/storm/bin/storm kill 'purge-topology' -w 5 | grep "Killed topology";
+		
+	  For DR site
+		sudo /apps/storm/bin/storm kill 'itm-disaster-recovery-topology' -w 5 | grep "Killed topology";
+		sudo /apps/storm/bin/storm kill 'reindex-topology' -w 5 | grep "Killed topology";
+		sudo /apps/storm/bin/storm kill 'job-processing-topology' -w 5 | grep "Killed topology";
+		
+		[execute '/apps/storm/bin/storm list' to view topologies they are still active]
+	5. Execute the following commands to stop all storm nodes
+	    fab stop_supervisor -H fab-<environment>-stm-h2,fab-<environment>-stm-h3,fab-<environment>-stm-h4,fab-<environment>-stm-h5
+ 
+		fab stop_storm -H fab-<environment>-stm-h6
+		
+	6. Execute the following commands to stop all karaf nodes
+		fab stop_karaf -H fab-<environment>-karafui-h1-1,fab-<environment>-karafui-h1-2,fab-<environment>-karafui-h2-1,fab-<environment>-karafui-h2-2,
+		fab-<environment>-karafdig-h1-1,fab-<environment>-karafdig-h1-2,fab-<environment>-karafdig-h2-1,fab-<environment>-karafdig-h2-2
+		
+	7. Execute the following commands to stop all hazelcast nodes
+		fab stop_hazelcast -H fab-<environment>-haz-h1,fab-<environment>-haz-h2,fab-<environment>-haz-h3
+		
+	8. Execute the following commands to stop all karaf_nfs nodes
+		fab stop_karaf -H fab-<environment>-karafnfs-h1,fab-<environment>-karafnfs-h2,fab-<environment>-karafnfs-h3
+		
+		
+ 3. UPGRADING Alcatraz
+	1. Launch the puppet_mgmt_ui(ex:10.135.34.83/puppet_mgmt_ui/index.php)
+	2. Select the environment to perform an upgraded(ex:emdr01)
+	3. select the required fabrics to be upgraded(all fabric nodes:storm,karaf, karaf_nfs,hazelcast)
+	4. Enter the build path(ex:/data1/1.0.0-15439-g80aaa96)
+	5. Click next
+	6. The puppet live status screen appear. Click logs tab to see the progress of build upgraded
+	   Note: Each node take approximately 2-3 minutes to update
+	  
+	  Once the build upgrade initiated, a mail is triggered from the puppet master to the administrator stating that a build update is triggered.  
+	  You will get Build Triggered Email(puppet run status: triggered)
+	  
+	  Oonce the build upgrade is complete, another mail is triggered from the puppet master
+	  You will get Build Pass Email(puppet run status: pass)
+	  
+	  
+ 4. Starting the Compute Node Services
+	1. login to the puppet master where fab scripts are installed.
+	2. Navigate to the /opt/command-examples/python-fabric directory.
+	3. Start all storm topologies
+		for primary site
+			/apps/storm/bin/IngestionTopology.sh
+			/apps/storm/bin/submit_lfs_ingestion_topology.sh
+			/apps/storm/bin/Export_Archive_Topology.sh
+			/apps/storm/bin/Export_Ediscovery_Topology.sh
+			/apps/storm/bin/Export_Supervision_Topology.sh
+			/apps/storm/bin/submit_dr_primary_topology.sh
+			/apps/storm/bin/JobsTopology.sh
+			/apps/storm/bin/HoldTopology.sh
+			/apps/storm/bin/SupervisionHoldTagStormTolpology.sh
+			/apps/storm/bin/PurgeTopology.sh
+		for DR site
+			/apps/storm/bin/submit_dr_secondary_topology.sh
+			/apps/storm/bin/submit_jobs_topology.sh
+			/apps/storm/bin/submit_reindex_topology.sh
+			
+		[execute '/apps/storm/bin/storm list' to view topologies they are still active]
+	4. Execute the following commands to start all storm nodes
+	    fab start_supervisor -H fab-<environment>-stm-h2,fab-<environment>-stm-h3,fab-<environment>-stm-h4,fab-<environment>-stm-h5
+ 
+		fab start_storm -H fab-<environment>-stm-h6
+		
+	5. Execute the following commands to start all karaf nodes
+		fab start_karaf -H fab-<environment>-karafui-h1-1,fab-<environment>-karafui-h1-2,fab-<environment>-karafui-h2-1,fab-<environment>-karafui-h2-2,
+		fab-<environment>-karafdig-h1-1,fab-<environment>-karafdig-h1-2,fab-<environment>-karafdig-h2-1,fab-<environment>-karafdig-h2-2
+		
+	6. Execute the following commands to start all hazelcast nodes
+		fab start_hazelcast -H fab-<environment>-haz-h1,fab-<environment>-haz-h2,fab-<environment>-haz-h3
+		
+	7. Execute the following commands to start all karaf_nfs nodes
+		fab start_karaf -H fab-<environment>-karafnfs-h1,fab-<environment>-karafnfs-h2,fab-<environment>-karafnfs-h3
+		
+	
+ 5. VALIDATION
+	We can perform validation in four ways
+	
+		1. Execute the command 'mco package status alceph' to check the correct build in the puppet master.
+		   Result: Alceph version(build number) in all nodes is displayed.
+		   
+		2. Navigate to the /apps/karaf/bin directory and execute the './client' file to get access to the karaf's CLI
+		   You will see FARAF screen
+		   
+		3. Execute the 'list | grep -v active' command to check if all the bundles in the build are installed in each node
+		   Result: Shows the state of each bundle is either Resolved or Installed
+		    
+		4. To check the status of storm/karaf/hazelcast/karaf_nfs service, login to respective fabric's node and execute the following command
+			sudo systemctl status <fabric name>
+			ps -ef | grep <fabric name>
+			
+-------------------------------------------------------------------------------------------------------------------------------------------------------------
+build configuration url:
+https://ect-confluence:8443/display/ARB/Build+Upgrade+UI+Installation(required to do before upgrade)
+			
+			
+	
